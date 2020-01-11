@@ -1,28 +1,40 @@
-// Personal modules
-const { name, add } = require('./utils');
-const getNotes = require('./notes.js');
-
-// Npm local modules
+const yargs = require('yargs');
 const validator = require('validator');
 const chalk = require('chalk');
 
-// User personal modules
-const sum = add(9, 15);
-console.log(sum);
+/* AT FIRST
 
-const msg = getNotes();
-console.log(msg);
+const command = process.argv[2];
 
-// Use npm modules
-// - String validation with validator
-console.log(validator.isEmail('gaetz@rufflerim.com'));
-console.log(validator.isURL('http:/rufflerm.com'));
+if (command === 'add') {
+    console.log('Adding note');
+} else if (command === 'remove') {
+    console.log('Removing note');
+}
 
-// - Console color with chalk
-console.log(chalk.blue.bgGreen.bold('success'));
-console.log(chalk.green.inverse.bold('other success'));
-console.log(chalk.red('fail'));
+// We want to use commands like: node app.js add --title="Big note"
+// We will use a module that handles arguments: yargs
 
-// Install nodemon for auto update when you save your program
-// (sudo) npm install -g nodemon
 
+ */
+
+
+// Configure yargs
+
+yargs.command('add', 'Add a note', {}, function() {
+    console.log("Add a note");
+});
+yargs.command('remove', 'Remove a note', {}, () => {
+    console.log("Remove a note");
+});
+yargs.command('read', 'Read a note', {}, () => {
+    console.log("Read a note");
+});
+yargs.command('list', 'List notes', {}, () => {
+    console.log("List notes");
+});
+
+console.log(yargs.argv)
+
+// Run: 'node app.js --help' to see the documentation
+// Run: 'node app.js add --title="Things to buy"' to see it in action
