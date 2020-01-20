@@ -21,6 +21,7 @@ if (command === 'add') {
 
 // Configure yargs
 
+/* 1.
 yargs.command('add', 'Add a note', {}, function() {
     console.log("Add a note");
 });
@@ -35,6 +36,29 @@ yargs.command('list', 'List notes', {}, () => {
 });
 
 console.log(yargs.argv)
+
+
+ */
+
+
+yargs.command('add', 'Add a note',
+    {
+        title: { describe: 'Note title', demandOption: true, type: 'string' }
+    },
+    function(argv) {
+        console.log("Title: ", argv.title);
+    });
+yargs.command('remove', 'Remove a note', {}, () => {
+    console.log("Remove a note");
+});
+yargs.command('read', 'Read a note', {}, () => {
+    console.log("Read a note");
+});
+yargs.command('list', 'List notes', {}, () => {
+    console.log("List notes");
+});
+
+yargs.parse();
 
 // Run: 'node app.js --help' to see the documentation
 // Run: 'node app.js add --title="Things to buy"' to see it in action
