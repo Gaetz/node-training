@@ -132,3 +132,12 @@ yargs.command('list', 'List notes', {}, () => {
 yargs.parse();
 
 // Run: 'node app.js add --title="Things to buy" --body="ice cream, spinach"' to see it in action
+
+/* Debug on windows :
+node inspect app.js add --title="Things to buy" --body="ice cream, spinach"
+OR
+node --inspect-brk app.js add --title="Things to buy" --body="ice cream, spinach"
+Open chrome with chrome://inspect, select the folder you want to debug
+Add "debugger" in the code where you want to start debugging
+ */
+
