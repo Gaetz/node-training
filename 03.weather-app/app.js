@@ -53,12 +53,52 @@ request( { url: url, json:true }, (error, response) => {
 // https://docs.mapbox.com/api/search
 
 const mapboxToken = 'pk.eyJ1IjoiZ2FldHoiLCJhIjoiY2s1cDdlcG8xMHQyYjNmbnN0YjJhcmNqeiJ9.kLu5p2ln7vq0X7CyQARZfQ';
-const geocodeUrl = 'https://api.mapbox.com/geocoding/v5/mapbox.places/Montpellier.json?&language=fr&access_token=pk.eyJ1IjoiZ2FldHoiLCJhIjoiY2s1cDdlcG8xMHQyYjNmbnN0YjJhcmNqeiJ9.kLu5p2ln7vq0X7CyQARZfQ';
+const geocodeUrl = 'https://api.mapbox.com/geocoding/v5/mapbox.places/Montpellier.json?&language=fr&access_token=' + mapboxToken;
 
 // Exercice: get the latitude and longitude of Montpellier
-
+/*
+let longitude = 0.0;
+let latitude = 0.0;
+let url = '';
 request( {url: geocodeUrl, json: true} , (error, response) => {
-    const latitude = response.body.features[0].center[1];
-    const longitude = response.body.features[0].center[0];
-    console.log('longitude: ' + longitude + ' latitude: ' + latitude);
+    if(error) {
+        console.log('Unable to connect to weather API.');
+    } else if(response.body.error) {
+        console.log('Unable to find location.');
+    } else {
+        latitude = response.body.features[0].center[1];
+        longitude = response.body.features[0].center[0];
+        console.log('longitude: ' + longitude + ' latitude: ' + latitude);
+        displayWeather(latitude, longitude);
+    }
 });
+*/
+// Exercice : get the coordinates of Montpellier with the geocode api and use them with the darksky api to get Montpellier weather
+
+function geocode(city, callback) {
+    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/'+ encodeURIComponent(city)+'.json?&language=fr&access_token=' + mapboxToken;
+
+    request( {url: url, json: true} , (error, response) => {
+        if(error) {
+            callback('Unable to connect to weather API.');
+        } else if(response.body.features.length === 0) {
+            callback('Unable to find location');
+        } else {
+            const latitude = response.body.features[0].center[1];
+            const longitude = response.body.features[0].center[0];
+            const data = { latitude:latitude, longitude:longitude };
+            callback(error, data);
+        }
+    });
+}
+
+function displayWeather(data) {
+    const url = 'https://api.darksky.net/forecast/ad95e11dbf8fe6961a05425dea338c24/' + data.latitude + ',' + data.longitude + '?units=si&lang=fr';
+    request({url: url, json: true}, (error, response) => {
+        //console.log(response.body.currently);
+        const body = response.body;
+        console.log(body.daily.data[0].summary + ' Il fait actuellement ' + body.currently.temperature + ' degrés et le risque de pluie est de ' + body.currently.precipProbability * 100 + '%.');
+    });
+}
+
+geocode('Montpellier', (error, data) => displayWeather(data));
