@@ -107,8 +107,8 @@ app.get('/weather', (req, res) => {
 // Exercice: Use this route to send back in a json request the weather forecast, using our new utils.
 // Dont forget to install request.
 
-const geocode = require('./utils/geocode');
-const displayWeather = require('./utils/displayWeather');
+const utils = require('./utils')
+const { geocode, displayWeather } = utils;
 
 app.get('/weather', (req, res) => {
     if(!req.query.city) {
@@ -128,7 +128,7 @@ app.get('/weather', (req, res) => {
             }
 
             res.send({
-                forecast: resultData,
+                data: resultData,
                 location: req.query.city
             });
         })

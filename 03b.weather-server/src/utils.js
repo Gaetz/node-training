@@ -1,4 +1,5 @@
 const request = require('request');
+const mapboxToken = 'pk.eyJ1IjoiZ2FldHoiLCJhIjoiY2s1cDdlcG8xMHQyYjNmbnN0YjJhcmNqeiJ9.kLu5p2ln7vq0X7CyQARZfQ';
 
 function geocode(city, callback) {
     const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/'+ encodeURIComponent(city)+'.json?&language=fr&access_token=' + mapboxToken;
@@ -27,7 +28,7 @@ function displayWeather(data, callback) {
             callback('Unable to find location\'s weather');
         } else {
             const { temperature, precipProbability } = response.body.currently; // Use destructuring to create the two variables
-            callback(undefined, response.body.daily.data[0].summary + ' Il fait actuellement ' + temperature + ' degrés et le risque de pluie est de ' + precipProbability * 100 + '%.');
+            callback(undefined,  { summary: response.body.daily.data[0].summary, temperature, precipProbability });
         }
     });
 }
