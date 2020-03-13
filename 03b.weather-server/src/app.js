@@ -22,12 +22,15 @@ app.get('', (req, res) => {     // req: request data, res: response
 });
 */
 // 3. JSON
+
+/*
 app.get('', (req, res) => {     // req: request data, res: response
     res.send({
         name: 'Gaëtan',
         age: 32
     });
 });
+*/
 
 /*
 app.get('/help', (req, res) => {
@@ -69,12 +72,12 @@ app.get('/weather', (req, res) => {
 // Now we will serve files of a 'public' folder we create in our server folder
 
 // We can use those two variable to know were we are with node
-console.log(__dirname);
-console.log(__filename);
+//console.log(__dirname);
+//console.log(__filename);
 
 // We can also use the path module
 //const path = require('path');
-console.log(path.join(__dirname, '../public'));
+//console.log(path.join(__dirname, '../public'));
 
 // Now go up and configure the server to use the public folder
 // We create about and help html files in public, removing the node handler 
@@ -106,7 +109,7 @@ app.get('/weather', (req, res) => {
 // Now create a utils.js file that contains the geocode and the displayWeather functions.
 // Exercice: Use this route to send back in a json request the weather forecast, using our new utils.
 // Dont forget to install request.
-
+/*
 const utils = require('./utils')
 const { geocode, displayWeather } = utils;
 
@@ -134,6 +137,16 @@ app.get('/weather', (req, res) => {
         })
     });
 });
+*/
+
+const weatherLib = require('./weather')
+
+app.get('/weather', (req, res) => {
+    weatherLib.weather("Montpellier", (error, data) => {
+        res.status(200).send(data);
+    });
+});
+
 
 // Starts the server on port 3000
 app.listen(3000, () => {

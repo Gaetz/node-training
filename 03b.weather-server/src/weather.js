@@ -19,6 +19,7 @@ function coordinates(city, callback)
         }
     });
 }
+
 function displayWeather(data, callback)
 {
     const { latitude, longitude } = data;
@@ -49,5 +50,5 @@ function weather(city, callback) {
 }
 
 module.exports = {
-    weather
+    weather: weather
 }
