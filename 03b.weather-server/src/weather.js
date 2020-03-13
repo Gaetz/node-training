@@ -34,7 +34,8 @@ function displayWeather(data, callback)
         if (res.error) {
             console.log('Unable to find location\'s weather');
         } else {
-            return callback(undefined, { summary: res.daily.data[0].summary, temperature: res.currently.temperature, precip: res.currently.precipProbability });
+            data = { summary: res.daily.data[0].summary, temperature: res.currently.temperature, precip: res.currently.precipProbability };
+            callback(undefined, data);
         }
     });
 }
