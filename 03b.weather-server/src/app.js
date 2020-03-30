@@ -139,12 +139,25 @@ app.get('/weather', (req, res) => {
 });
 */
 
+function buildWeatherData(city) {
+    return {
+        summary: 'Il fait beau à ' + city,
+        temperature: 20,
+        precip:0.05
+    }
+}
+
 const weatherLib = require('./weather')
 
 app.get('/weather', (req, res) => {
-    weatherLib.weather("Montpellier", (error, data) => {
+    /*
+    weatherLib.weather(req.query.city, (error, data) => {
+        console.log(req.query.city);
         res.status(200).send(data);
     });
+    */
+    const data = buildWeatherData(req.query.city);
+    res.status(200).send(data);
 });
 
 
