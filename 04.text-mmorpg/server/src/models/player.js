@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 
-const Player = mongoose.model('Player', {
+const playerSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
@@ -38,6 +38,14 @@ const Player = mongoose.model('Player', {
             }
         }
     }
-});
+})
+
+playerSchema.virtual('quests', {
+    ref: 'Quest',
+    localField: '_id',
+    foreignField: 'owner'
+})
+
+const Player = mongoose.model('Player', playerSchema);
 
 module.exports = Player

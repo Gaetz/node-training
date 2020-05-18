@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-mongoose.connect('mongodb://127.0.0.1:27017/text-mmorpg', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/text-mmorpg', {
     useNewUrlParser: true,
     useCreateIndex: true,
     useUnifiedTopology: true,

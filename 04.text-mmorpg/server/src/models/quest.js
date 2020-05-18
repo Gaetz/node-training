@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const Quest = mongoose.model('Quest', {
+const questSchema = new mongoose.Schema({
     description: {
         type: String,
         required: true,
@@ -10,7 +10,14 @@ const Quest = mongoose.model('Quest', {
         type: Boolean,
         required: false,
         default: false
+    },
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        required:true,
+        ref: 'Player'
     }
-});
+})
+
+const Quest = mongoose.model('Quest', questSchema);
 
 module.exports = Quest

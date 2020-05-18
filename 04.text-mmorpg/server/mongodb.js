@@ -1,4 +1,4 @@
-const mongodb = require('mongodb');
+/*const mongodb = require('mongodb');
 const MongoClient = mongodb.MongoClient;
 
 const connectionURL = 'mongodb://127.0.0.1:27017'; // Database adress
@@ -9,6 +9,7 @@ MongoClient.connect(connectionURL, { useNewUrlParser: true }, (error, client) =>
         return console.log('Unable to connect to database');
     }
 });
+*/
 
 /* 1. Test connection
 console.log('Unable to connect to database')
