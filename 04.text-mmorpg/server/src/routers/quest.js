@@ -17,10 +17,28 @@ router.post('/quests', async (req, res) => {
 
 router.get('/quests', async (req, res) => { 
     try {
-        const quests = await Quest.find({});
+        //const completedQuery = req.query.isCompleted
+        const limitQuery = req.query.limit
+        const sortByQuery = req.query.sortBy
+        let quests = []
+        if(limitQuery) {
+            if(sortByQuery)
+            {
+                const parts = sortByQuery.split(':')
+                const sign = parts[1] === 'desc' ? '-' : ''
+                quests = await Quest.find({})
+                    .limit(parseInt(limitQuery))
+                    .sort( sign+parts[0] );
+            } else {
+                quests = await Quest.find({}).limit(parseInt(limitQuery))
+            }
+        } else {
+            quests = await Quest.find({});
+        }
         res.status(200).send(quests);
     }
     catch(error) {
+        console.log(error)
         res.status(500).send();
     }
 });

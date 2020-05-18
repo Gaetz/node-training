@@ -38,7 +38,7 @@ const playerSchema = new mongoose.Schema({
             }
         }
     }
-})
+}, { timestamps: true })
 
 playerSchema.virtual('quests', {
     ref: 'Quest',

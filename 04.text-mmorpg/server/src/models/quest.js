@@ -16,7 +16,7 @@ const questSchema = new mongoose.Schema({
         required:true,
         ref: 'Player'
     }
-})
+}, { timestamps: true })
 
 const Quest = mongoose.model('Quest', questSchema);
 
