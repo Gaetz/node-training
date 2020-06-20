@@ -1,7 +1,5 @@
 const request = require('request');
-
 const mapboxToken = 'pk.eyJ1IjoiZ2FldHoiLCJhIjoiY2s1cDdlcG8xMHQyYjNmbnN0YjJhcmNqeiJ9.kLu5p2ln7vq0X7CyQARZfQ';
-
 
 function coordinates(city, callback)
 {

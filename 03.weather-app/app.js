@@ -75,7 +75,7 @@ request( {url: geocodeUrl, json: true} , (error, response) => {
 */
 // Exercice : get the coordinates of Montpellier with the geocode api and use them with the darksky api to get Montpellier weather
 
-function geocode(city, callback) {
+function coordinates(city, callback) {
     const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/'+ encodeURIComponent(city)+'.json?&language=fr&access_token=' + mapboxToken;
 
     request( {url: url, json: true} , (error, response) => {
@@ -107,7 +107,8 @@ function displayWeather(data, callback) {
     });
 }
 
-geocode('Montpellier', (error, data) => {
+/*
+coordinates('Montpellier', (error, data) => {
     if(error) {
         return console.log(error);
     }
@@ -118,4 +119,18 @@ geocode('Montpellier', (error, data) => {
         }
         console.log(data);
     })
+});
+*/
+function weather(city, callback) {
+    coordinates(city, (error, data) => {
+        if (error) {
+            console.log(error);
+            return;
+        }
+        displayWeather(data, callback);
+    });
+}
+ 
+weather('Montpellier', (error, data) => {
+        console.log(data);
 });

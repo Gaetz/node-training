@@ -1,17 +1,16 @@
 // Personal modules
-const { name, add } = require('./utils');
-const getNotes = require('./notes.js');
+const utils = require('./utils')
+const { name, add } = require('./utils')
+
+// User personal modules
+const sum = utils.add(9, 15)
+console.log(sum)
+const sum1 = add(9, 15)
+console.log(sum1)
 
 // Npm local modules
 const validator = require('validator');
 const chalk = require('chalk');
-
-// User personal modules
-const sum = add(9, 15);
-console.log(sum);
-
-const msg = getNotes();
-console.log(msg);
 
 // Use npm modules
 // - String validation with validator
