@@ -1,7 +1,12 @@
+/*
 import React, {useState, useEffect} from 'react'
 import axios from 'axios'
+*/
+import React from 'react'
 
 const CommentList = (props) => {
+  const { comments } = props
+  /*
   const { postId } = props
   const [comments, setComments] = useState([])
 
@@ -14,7 +19,7 @@ const CommentList = (props) => {
   useEffect( () => {
     fetchData(); // eslint-disable-next-line
   }, [])
-
+  */
 
   const renderedComments = comments.map(comment => {
     return <li key={comment.id}>{comment.content}</li>
