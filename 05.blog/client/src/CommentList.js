@@ -6,7 +6,8 @@ import React from 'react'
 
 const CommentList = (props) => {
   const { comments } = props
-  /*
+
+  /*  // First way to get comments
   const { postId } = props
   const [comments, setComments] = useState([])
 
@@ -21,6 +22,7 @@ const CommentList = (props) => {
   }, [])
   */
 
+  // Now comments are passed by props
   const renderedComments = comments.map(comment => {
     return <li key={comment.id}>{comment.content}</li>
   })

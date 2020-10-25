@@ -16,7 +16,8 @@ const PostList = () => {
   useEffect(() => {
     fetchPosts();
   }, [])
-  /*
+
+  /*  // First way to draw posts
     const renderedPosts = Object.values(posts).map(post => {  // Get an array from the object content and map on it
         return (
           <div className="card" style={{ width: '30%', marginBottom:'20px' }} key={post.id}>
