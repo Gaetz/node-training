@@ -11,9 +11,10 @@ const CommentList = (props) => {
   }
 
   // Trigger fetchPosts only once when the PostList is loaded
-  useEffect(()=>{
-    fetchData();
+  useEffect( () => {
+    fetchData(); // eslint-disable-next-line
   }, [])
+
 
   const renderedComments = comments.map(comment => {
     return <li key={comment.id}>{comment.content}</li>
