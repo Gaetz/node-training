@@ -83,11 +83,49 @@ docker exec -it [id] sh         // Allow to use shell commands in container.
 ## Create your own docker image
 First create a docker file : configuration
 
-Create a redis§image folder
+Create a redis-image folder and a Dockerfile file inside it.
 ``` 
 mkdir redis-image
+cd redis-image/
+touch Dockerfile
 ``` 
+Edit the Docker file 
+
+```
+# Use an existing docker image as a base
+FROM alpine
+
+# Download and install a dependancy
+RUN apk add --update redis
+
+# Tell the image what to do when it starts
+CMD ["redis-server"]
+```
+Run the build by entering in the terminal:
+```
+docker build .
+```
+Then we need to get the image id:
+```
+docker image ls
+```
+You should get your latest image id in the list. You can then run it :
+```
+docker run [id]
+```
+Fine, it works! Exit by Ctrl+C.
+
+You can also build an image with your docker id and a name for the image.
+```
+docker build -t gaetz/redis:latest .    // -t for tag, latest is the version
+```
+Then you can launch the named version
+```
+docker run -it gaetz/redis              // -it to be able to Ctrl-C to kill server
+```
+You alsy may want to map your machine's port on the container port
+```
+docker run -it -p 8080:8080 gaetz/redis
+```
 
 
-Pass to the docker client then to the docker server
-The server will create an ilage
