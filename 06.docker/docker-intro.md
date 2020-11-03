@@ -80,3 +80,14 @@ docker exec -it [id] <command>  // Execute one command inside a container that
 docker exec -it [id] sh         // Allow to use shell commands in container.
                                 // Ctrl + D to exit.
 ``` 
+## Create your own docker image
+First create a docker file : configuration
+
+Create a redis§image folder
+``` 
+mkdir redis-image
+``` 
+
+
+Pass to the docker client then to the docker server
+The server will create an ilage
