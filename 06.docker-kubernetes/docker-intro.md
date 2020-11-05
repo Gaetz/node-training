@@ -128,4 +128,33 @@ You alsy may want to map your machine's port on the container port
 docker run -it -p 8080:8080 gaetz/redis
 ```
 
+## Create a simple-web application to test
 
+
+## Create Dockerfile for the blog app
+
+For each microservice, this will be the config file:
+```
+FROM node:alpine
+
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY ./ ./
+
+CMD ["npm", "start"]
+```
+For the client, you'll need to add one line (useful later):
+```
+FROM node:alpine
+
+# Add the following line 
+ENV CI=true
+
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY ./ ./
+
+CMD ["npm", "start"]
+```

@@ -249,3 +249,68 @@ Now, in event-bus, change the urls to reach the different services. Rebuild with
 
 ## Integrate React application
 Note that once react app is loaded on the client brower, it is the client browser that send request to pods, not the react application.
+### Ingress
+We'll use a Load Balancer service that our react app will adress. This load balancer will be configured to send the requests to the cluster ip services.
+
+We can distinguish Load Balancers and Ingress. 
+With a Load Balancer config file, we ask the cluster to reach out the cloud provider (amazon aws, azure...) and use the cloud's loadbalancer to send traffic to a specific pod.
+On the other hand, Ingress controller is in the cluster, and distribute traffic to a set of different pods. We can still have a load balancer in front of the Ingress.
+
+We'll use the ingress-nginx package, that is an ingress + a load balancer. 
+
+### Installing ingress-nginx
+
+* Make sure git is installed
+* Run this script
+```
+(
+  set -x; cd "$(mktemp -d)" &&
+  curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
+  tar zxvf krew.tar.gz &&
+  KREW=./krew-"$(uname | tr '[:upper:]' '[:lower:]')_$(uname -m | sed -e 's/x86_64/amd64/' -e 's/arm.*$/arm/')" &&
+  "$KREW" install krew
+)
+```
+* Open your .bashrc file and add:
+```
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+```
+* Restart your shell
+* Verify `kubectl krew` works
+* Now the k8s package manager is installed. Run :
+```
+kubectl krew install ingress-nginx
+```
+* Run the command:
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.40.1/deploy/static/provider/cloud/deploy.yaml
+```
+
+### Config file for ingress-nginx
+
+We start by creating an ingress for the posts routes.
+```
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-srv
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: posts.com
+      http:
+        paths:
+          - path: /posts
+            backend:
+              serviceName: posts-clusterip-srv
+              servicePort: 4000
+```
+`host: posts.com` means that we will connect to a false posts.com website to go to localhost. Ingress want us to connect from a domain. To trick our computer to think we go through posts.com when we want to go local host, we will edit our /etc/hosts file.
+
+Send a GET request to posts.com/posts to check everything works:
+```
+curl posts.com/posts
+```
+You should obtain the JSON with the posts.
+(Unfortunatly under Windows/WSL, you cannot use your navigator.)
