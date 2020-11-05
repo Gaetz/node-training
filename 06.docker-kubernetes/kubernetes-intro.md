@@ -314,3 +314,155 @@ curl posts.com/posts
 ```
 You should obtain the JSON with the posts.
 (Unfortunatly under Windows/WSL, you cannot use your navigator.)
+
+### Deploying the client
+
+First, in the client react app, change localhost:4xxx to posts.com
+Then docker build and push the client.
+Create a client-depl.yaml file along the model of the other deployment files. Port is 3000 this time.
+Apply the file.
+
+### Update the route mapping for other microservices
+
+We need to configure ingress for the other routing routes.
+We have 4 routes:
+
+```
+GET   /posts                # Shoud go to query pod, not to posts pod
+GET   /                     # React app
+POST  /posts                # Go to posts pod
+POST  /posts/:id/comments   # Go to comments pod
+```
+
+The problem is the ingress controller doesn't know about GET or POST method. We have to update our routes to disambiguate all this. New routes :
+
+```
+/posts/create         # Shoud go to query pod, not to posts pod
+/                     # React app
+/posts                # Go to posts pod
+/posts/:id/comments   # Go to comments pod
+```
+We need to update PostCreate.js in the react app to reach the `/posts/create` route, then modify the index.js file in the posts microservice to receive this route.
+
+Now rebuild and push client and posts microservices. Then restart both deployment.
+
+We can now update the ingress config.
+```
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-srv
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/use-regex: 'true'     # Enable regex
+spec:
+  rules:
+    - host: posts.com
+      http:
+        paths:
+          - path: /posts/create
+            backend:
+              serviceName: posts-clusterip-srv
+              servicePort: 4000
+          - path: /posts
+            backend:
+              serviceName: query-srv
+              servicePort: 4002
+          - path: /posts/?(.*)/comments               # Regex for anything
+            backend:
+              serviceName: comments-srv
+              servicePort: 4001
+          - path: /?(.*)                              # Any other route
+            backend:
+              serviceName: client-srv
+              servicePort: 3000
+```
+Reapply this file.
+
+(Unfortunatly windows WSL does not forward the browser to your linux environment. Curl will work from your terminal though. If you find a way to fix this I'll be happy if you share it. We will build the future app on the cloud, so we won't have this kind of problem.)
+
+## Skaffold
+
+Until know, we had to rebuild and redeploy each time we wanted to modify our microservices. Skaffold will avoid that to us. Let's try it with this app, and use it in the next.
+
+### Setup
+
+Install skaffold: https://skaffold.dev/docs/install/
+
+Create a skaffold.yaml file at the root of your folder.
+```
+apiVersion: skaffold/v2alpha3
+kind: Config
+deploy:
+  kubectl:
+    manifests:
+      - ./infra/k8s/*               # Identify deployment files
+build:
+  local:
+    push: false                     # Do not push to dockerhub
+  artifacts:
+    - image: gaetz/client
+      context: client
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: 'src/**/*.js'      # If modify js file, will copy it to the pod
+            dest: .                 # If not rebuild everything
+    - image: gaetz/posts
+      context: posts
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '*.js'
+            dest: .
+    - image: gaetz/comments
+      context: comments
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '*.js'
+            dest: .
+    - image: gaetz/query
+      context: query
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '*.js'
+            dest: .
+    - image: gaetz/moderation
+      context: moderation
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '*.js'
+            dest: .
+    - image: gaetz/event-bus
+      context: event-bus
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '*.js'
+            dest: .
+```
+### Autobuilding
+
+Now start skaffold:
+```
+skaffold dev
+```
+This will rebuild everything and start the development mode. It may crash the first time, but try to relaunch, it should work.
+
+Now, you should have autoreload of everything when you modify a js file. Try modidy the log message of the post server for instance.
+
+Magic isn't it?
+
+### Quit and clean kubernetes
+You can also use skaffold to clean all your services and pods.
+
+Just hit Ctrl+C and skaffold will close everything for you.
