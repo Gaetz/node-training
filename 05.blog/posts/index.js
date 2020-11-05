@@ -49,5 +49,6 @@ app.post('/events', async (req, res) => {
 })
 
 app.listen(4000, () => {
+    console.log('Version update')
     console.log('Posts server listening on 4000')
 })
