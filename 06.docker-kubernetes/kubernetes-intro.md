@@ -243,3 +243,9 @@ Let's now use postman to test the wiring. Get the NodePort port to send your pos
 
 Then verify the messages were exchanged between the two services by displaying the logs of the posts pods. You should have "Received event: PostCreated".
 
+Now update your other microservices to wire up all the application. You can run kubectl apply in a whole directory if you don't want to type multiple commands. Then check all pods are running.
+
+Now, in event-bus, change the urls to reach the different services. Rebuild with dochent and rollout restart the event-bus deployment. Test with postman if communication works.
+
+## Integrate React application
+Note that once react app is loaded on the client brower, it is the client browser that send request to pods, not the react application.

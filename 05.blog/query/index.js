@@ -74,10 +74,18 @@ app.listen(4002, () => {
   console.log('Query server listening on 4002')
 })
 */
-
+/*
 app.listen(4002, async () => {
   console.log('Query server listening on 4002')
   const res = await axios.get('http://localhost:4005/events')
+  for(let event of res.data) {
+    handleEvent(event.type, event.data)
+  }
+})
+*/
+app.listen(4002, async () => {
+  console.log('Query server listening on 4002')
+  const res = await axios.get('http://event-bus-srv:4005/events')
   for(let event of res.data) {
     handleEvent(event.type, event.data)
   }
