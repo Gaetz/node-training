@@ -174,3 +174,72 @@ kubectl describe service [service name]
 ## Communication between pods with Cluster IP
 We want to expose a pod to other pods. We'll expose posts and event-bus.
 
+### Deploy services
+
+In this first attempt to make pods communicate, we'll assign manually a Cluster IP service to each pod. Each pod will communicate with the cluster IP service of the other one. Nevertheless, we'll use an automation tool later.
+
+Start by create an image for the event bus, push the image to docker hub, create a deployment for event bus.
+
+Now we'll create a Cluster IP service for the posts and event bus deployment.
+
+We can use the deployment file to configure the event-bus cluster ip, by adding "---" at the end of the first part of the file.
+
+```
+[previous code]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-bus-srv
+spec:
+  selector:
+    app: event-bus
+  type: ClusterIP
+  ports:
+    - name: event-bus
+      protocol: TCP
+      port: 4005
+      targetPort: 4005
+```
+
+Let's now add the cluster IP service for posts in the post-depl file.
+```
+[previous code]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: posts-clusterip-srv
+spec:
+  selector:
+    app: posts
+  type: ClusterIP
+  ports:
+    - name: posts
+      protocol: TCP
+      port: 4000
+      targetPort: 4000
+```
+
+### Wiring-up pods
+For now, our post app send request to localhost:4005 to reach the event bus.
+The event bus, send a request to localhost:400 to reach the posts app.
+
+We have to replace http://localhost:4005 by http://event-bus-srv:4005 in posts, and http://localhost:4001 by http://posts-clusterip-srv:4001 in event-bus. Comment out the event bus communication with other app, because for now they are not ready to use k8s.
+
+Then build the docker images and push them to docker hub.
+
+Now we need to redeploy and restart:
+```
+kubectl rollout restart deployment posts-depl
+kubectl rollout restart deployment event-bus-depl
+```
+Verify pods are running:
+```
+kubectl get pods
+```
+
+Let's now use postman to test the wiring. Get the NodePort port to send your post creation request (POST http://localhost:3xxxx/posts).
+
+Then verify the messages were exchanged between the two services by displaying the logs of the posts pods. You should have "Received event: PostCreated".
+
