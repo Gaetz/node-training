@@ -5,10 +5,12 @@ deploy:
     manifests:
       - ./infra/k8s/*
 build:
-  local:
-    push: false
+  # local:
+  #   push: false
+  googleCloudBuild:
+    projectId: items-dev-295212               # Real ID of the project
   artifacts:
-    - image: gaetz/items-auth
+    - image: us.gcr.io/items-dev-295212/auth  # us.gcr.io/project/folder-name
       context: auth
       docker:
         dockerfile: Dockerfile

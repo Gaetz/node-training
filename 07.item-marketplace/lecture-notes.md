@@ -214,7 +214,110 @@ To access locally your application, modify /etc/hots and add `127.0.0.1  items.d
 
 # Google cloud setup
 
-Previous configuration for local access. Nevertheless, local access can become slow on a laptop computer. We'll leverage google cloud to test our application.
+Previous configuration for local access. Nevertheless, local access can become slow on a laptop computer. We'll leverage google cloud to test our application. We will use google cloud because skaffold was developped by google, so that it is very easy to use with google cloud.
 
+Note that we'll have to use our credit card for this demo. Google cloud offer 300$ so we should stay in the free tier, so you won't pay anything. Google cloud need a manual udate to start taking you money, so you don't have to worry.
 
+If you don't want to take this risk, keep working with the local redirection.
 
+## Google cloud project
+
+Go to cloud.google.com/free
+Create an account
+Create a new project with name: items-dev
+Wait for the project to complete its setup
+Change to your new project
+
+## Kubernetes setup on google cloud
+
+Go to Kubernetes engine on the menu
+Wait for the kubernetes API to start
+Create a cluster
+Change the name of the cluster to items-dev
+Select a zone near you
+Select a 1.15+ version (e.g. latest)
+
+Then go to default-pool. You should see your config. Go to Nodes.
+Select Serie N1 and Type g1-small to get a small machine.
+Click create. It will take some time.
+
+We'll use the google cloud sdk to automatically manage kubernetes contexts for us.
+Go to https://cloud.google.com/sdk/docs/quickstarts 
+Choose your version of the installation. For windows + WSL2 choose Windows.
+Type:
+```
+gcloud auth login
+```
+Use the link it eventually gives, connect with your google cloud account then past the verification code.
+
+Now run:
+```
+gcloud init
+```
+If you need so, you have to Re-initilize this configuration, then choose your account, select your project, then answer yes.
+Select the region you have chosen before.
+
+If you run docker desktop, run:
+```
+gcloud container clusters get-credentials items-dev
+```
+
+If not:
+```
+gcloud components install cubectl
+gcloud container clusters get-credentials items-dev
+```
+
+When you right click the Docker desktop daemon, under Kubernetes, you know see your google cloud cluster. Select it.
+
+## Config Skaffold for google cloud
+
+On the google cloud menu breadcumb, scroll down until Tools / Cloud Build, then enable it.
+
+Update your skaffold.yaml file:
+```
+apiVersion: skaffold/v2alpha3
+kind: Config
+deploy:
+  kubectl:
+    manifests:
+      - ./infra/k8s/*
+build:
+  # local:
+  #   push: false
+  googleCloudBuild:
+    projectId: items-dev-295212               # Real ID of the project
+  artifacts:
+    - image: us.gcr.io/items-dev-295212/auth  # us.gcr.io/project/folder-name
+      context: auth
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: 'src/**/*.ts'
+            dest: .
+```
+
+Update the auth-depl.yaml deployment file with the new image name:
+```
+...
+    spec:
+      containers:
+        - name: auth
+          image: us.gcr.io/items-dev-295212/auth
+---
+...
+```
+
+## Config ingress-nginx for google cloud
+
+Still connected to the google cloud context, run:
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.40.1/deploy/static/provider/cloud/deploy.yaml
+```
+Go to Networking / Network service / Load balancing. Click on the randomly named load balander. Copy the ip adress of the load balancer
+
+Open the host file (on windows if you use docker desktop : c:/windows/system32/drivers/etc/hosts) and change the redirection:
+```
+34.76.229.116 items.dev
+```
