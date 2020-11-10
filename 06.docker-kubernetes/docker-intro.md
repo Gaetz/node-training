@@ -123,7 +123,7 @@ Then you can launch the named version
 ```
 docker run -it gaetz/redis              // -it to be able to Ctrl-C to kill server
 ```
-You alsy may want to map your machine's port on the container port
+You may also want to map your machine's port on the container port
 ```
 docker run -it -p 8080:8080 gaetz/redis
 ```
