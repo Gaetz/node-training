@@ -218,6 +218,8 @@ Previous configuration for local access. Nevertheless, local access can become s
 
 Note that we'll have to use our credit card for this demo. Google cloud offer 300$ so we should stay in the free tier, so you won't pay anything. Google cloud need a manual udate to start taking you money, so you don't have to worry.
 
+Do not forget, at the end of this course, to delete the cluster.
+
 If you don't want to take this risk, keep working with the local redirection.
 
 ## Google cloud project
@@ -315,9 +317,26 @@ Still connected to the google cloud context, run:
 ```
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.40.1/deploy/static/provider/cloud/deploy.yaml
 ```
+
 Go to Networking / Network service / Load balancing. Click on the randomly named load balander. Copy the ip adress of the load balancer
 
 Open the host file (on windows if you use docker desktop : c:/windows/system32/drivers/etc/hosts) and change the redirection:
 ```
 34.76.229.116 items.dev
 ```
+
+Then Rerun skaffold:
+```
+skaffold dev
+```
+
+You may have to log in again:
+```
+gcloud auth application-default login
+```
+
+You will see google cloud build online. You can go Cloud Build history on the google cloud platform to see the same log.
+
+Connect to items.dev/api/users/currentuser
+
+Unfortunatly, you cannot override the certificate error with firefox. You have to use chromium/edge/chrome and type "thisisunsafe" on the error page. And you finally land on your cloud hosts application!
