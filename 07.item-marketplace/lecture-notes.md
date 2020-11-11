@@ -1088,4 +1088,159 @@ export { router as signupRouter }
 
 ## Current user
 
+routes/current-user.ts
+```
+import express from 'express'
+import jwt from 'jsonwebtoken'
+
+const router = express.Router()
+
+router.get('/api/users/currentuser', (req, res) => {
+    // Check session
+    if (!req.session?.jwt) {    // typescript for (!req.session || !req.session.jwt)
+        return res.send({ currentUser: null})
+    }
+
+    // Check validity of jwt
+    try {
+        const payload = jwt.verify(req.session.jwt, process.env.JWT_KEY!)
+        // No catch: Valid token
+        return res.send({ currentUser: payload })
+    } catch (err) {
+        return res.send({ currentUser: null })
+    }
+    
+})
+
+export { router as currentUserRouter }
+```
+
+If you want to test this route, you need to add in postman the cookie with jwt to your request.
+
+## Signing out
+
+We will tell the browser to dump all session info, includind our jwt carrying cookie.
+
+routes/signout.ts
+```
+import express from 'express'
+
+const router = express.Router()
+
+router.post('/api/users/signout', (req, res) => {
+    req.session = null
+    res.send({})
+})
+
+export { router as signoutRouter }
+```
+
+## Investing for the future
+
+We will need to get the current user (or reject it if one's not logged in) in the whole application, so we'll build a middleware for :
+- Extracting the jwt payload and set it on req.currentUser
+- Reject the request if user is not logged in
+
+### Set current-user on request middleware
+
+auth/middlewares/current-user.ts
+```
+import { Request, Response, NextFunction } from 'express'
+import jwt from 'jsonwebtoken'
+
+interface UserPayload {
+    id: string
+    email: string
+}
+
+// Augment existing Request interface with currentUser?
+declare global {
+    namespace Express {
+        interface Request {
+            currentUser?: UserPayload
+        }
+    }
+}
+
+export const currentUser = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session?.jwt) {
+        return next()
+    }
+
+    try {
+        const payload = jwt.verify(req.session.jwt, process.env.JWT_KEY!) as UserPayload
+        // No catch: Valid token
+        req.currentUser = payload
+    } catch (err) {}
+
+    next()
+}
+```
+
+We will use this middleware in the current-user route:
+```
+import express from 'express'
+
+import { currentUser } from '../middlewares/current-user'
+
+const router = express.Router()
+
+router.get('/api/users/currentuser', currentUser, (req, res) => {
+    res.send({ currentUser: req.currentUser || null })
+})
+
+export { router as currentUserRouter }
+```
+
+### Reject not logged request middleware
+
+We first need a new error.
+
+auth/errors/not-authorized-error.ts
+```
+import { CustomError } from './custom-error'
+
+export class NotAuthorizedError extends CustomError {
+    statusCode = 401
+
+    constructor() {
+        super('Not authorized')
+        Object.setPrototypeOf(this, NotAuthorizedError.prototype)
+    }
+
+    public serializeErrors() {
+        return [ { message: 'Not authorized'} ]
+    }
+}
+```
+
+We now implement the middleware.
+
+auth/middlewares/require-auth.ts
+```
+import { Request, Response, NextFunction } from 'express'
+import { NotAuthorizedError } from '../errors/not-authorized-error'
+
+// We assume we used the currentUser middleware before
+export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.currentUser) {
+        throw new NotAuthorizedError()
+    }
+    next()
+}
+```
+
+We then update the current-user route.
+
+auth/routes/current-user.ts
+```
+...
+import { currentUser } from '../middlewares/current-user'
+import { requireAuth } from '../middlewares/require-auth'
+...
+router.get('/api/users/currentuser', currentUser, requireAuth, (req, res) => {
+    ...
+```
+
+# The server-side rendered react application (WIP)
 
