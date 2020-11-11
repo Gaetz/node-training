@@ -546,15 +546,14 @@ export const errorHandler = (err: Error, req: Request, res: Response, next:NextF
 
 ## Serializing errors
 
-If we add a lot of errors, the error handler will become too large and, as a consequence, unmanageable.
+If we add a lot of error types, the error handler will become too large and, as a consequence, unmanageable.
 
 We will also use the package to make express handling async errors:
 ```
 npm install express-async-errors
 ```
 
-Create a new `custom-error.ts` abstract class :
-
+Create a new `custom-error.ts` abstract class:
 ```
 export abstract class CustomError extends Error {
     abstract statusCode: number     // number member variable
@@ -564,7 +563,7 @@ export abstract class CustomError extends Error {
         Object.setPrototypeOf(this, CustomError.prototype)
     }
 
-    abstract serializeErrors(): {   // method that returns an array of objects
+    public abstract serializeErrors(): {   // method that returns an array of objects
         message: string;            // ...composed by a message string
         field?: string              // ...and an optional string field
     }[]
@@ -585,7 +584,7 @@ export class RequestValidationError extends Error implements CustomError {
         Object.setPrototypeOf(this, RequestValidationError.prototype)
     }
 
-    serializeErrors() {
+    public serializeErrors() {
         return this.errors.map( err => {
             return { message: err.msg, field: err.param }
         })
@@ -603,9 +602,10 @@ export class DatabaseConnectionError extends CustomError {
 
     constructor() {
         super('Error connecting to database')
+        Object.setPrototypeOf(this, DatabaseConnectionError.prototype)
     }
 
-    serializeErrors() {
+    public serializeErrors() {
         return [ {message: this.reason} ]
     }
 }
@@ -619,7 +619,8 @@ import { CustomError } from '../errors/custom-error'
 export const errorHandler = (err: Error, req: Request, res: Response, next:NextFunction) => {
     
     if(err instanceof CustomError) {
-        return res.status(err.statusCode).send({ errors: err.serializeErrors() })
+        const tsErr = err as CustomError
+        return res.status(tsErr.statusCode).send({ errors: tsErr.serializeErrors() })
     }
 
     res.status(400).send({ errors: [{ message: 'Unidentified error' }] })
@@ -637,9 +638,10 @@ export class NotFoundError extends CustomError {
 
     constructor() {
         super('Route not found')
+        Object.setPrototypeOf(this, NotFoundError.prototype)
     }
 
-    serializeErrors() {
+    public serializeErrors() {
         return [ { message: 'Route not found'} ]
     }
 }
@@ -669,7 +671,205 @@ app.use(errorHandler)
 
 ## Database for Auth
 
-Install mongoose:
+First install mongoose:
 ```
 npm install mongoose
+npm install @types/mongoose
 ```
+
+In the k8s folder, create a `auth-mongo-depl.yaml`:
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-mongo-depl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-mongo
+  template:
+    metadata:
+      labels:
+        app: auth-mongo
+    spec:
+      containers:
+        - name: auth-mongo
+          image: mongo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-mongo-srv
+spec:
+  selector:
+    app: auth-mongo
+  ports:
+    - name: db
+      protocol: TCP
+      port: 27017
+      targetPort: 27017
+```
+
+This will auto install the database from docker hub.
+
+Update index.js:
+```
+...
+import mongoose, { mongo } from 'mongoose'
+...
+const start = async () => {
+    try {
+        await mongoose.connect('mongodb://auth-mongo-srv:27017/auth', {
+            useNewUrlParser:true,
+            useUnifiedTopology: true,
+            useCreateIndex: true
+        })
+        console.log('Auth connected to mongodb')
+    } catch(err) {
+        console.log(err)
+    }
+
+    app.listen(3000, () => {
+        console.log('Auth service listening on port 3000')
+    })
+}
+
+start()
+```
+
+Create a src/models folder, and a user.ts file inside:
+```
+import mongoose from 'mongoose'
+
+const userSchema = new mongoose.Schema({
+    email: {
+        type: String,
+        required: true
+    },
+    password: {
+        type: String,
+        required: true
+    }
+})
+
+// Used to force javascript to type our user attributes
+interface UserAttrs {
+    email: string
+    password: string
+}
+
+// Used to force typescript add a build function in the User model
+interface UserModel extends mongoose.Model<UserDoc> {
+    build(attrs: UserAttrs): UserDoc
+}
+
+// User type-safe factory
+// We will be able to use User.build({ email: '...', password: '...' })
+userSchema.statics.build = (attrs: UserAttrs) => {
+    return new User(attrs)
+}
+
+// Describes the properties user documents will have
+interface UserDoc extends mongoose.Document {
+    email: string
+    password: string
+}
+
+const User = mongoose.model<UserDoc, UserModel>('User', userSchema)
+
+export { User }
+```
+
+## Creating a user
+
+### Hashing password
+First, we want the ability to hash passwords, so that we don't store them in clear in the database.
+
+Create a auth/services/password.ts file:
+```
+import { scrypt, randomBytes } from 'crypto'
+import { promisify } from 'util'
+
+const scryptAsync = promisify(scrypt) 
+
+export class Password {
+    static async toHash(password: string) {
+        const salt = randomBytes(8).toString('hex')
+        const buffer = (await scryptAsync(password, salt, 64)) as Buffer
+
+        return `${buffer.toString('hex')}.${salt}`
+    }
+
+    static async compare(storedPassword: string, suppliedPassword: string) {
+        const [hashedPassword, salt] = storedPassword.split('.')
+        const buffer = (await scryptAsync(suppliedPassword, salt, 64)) as Buffer
+
+        return buffer.toString('hex') === hashedPassword
+    }
+}
+```
+
+Update the user model so we are sure we hash the password each time we save a user.
+
+user.ts
+```
+...
+// This function will run before each save.
+// "this" inside the function is the document we will save.
+// We don't use arrow notation for function because it would
+// override the 'this' keyword.
+userSchema.pre('save', async function(done) {
+    // Only hass the password if it is modified
+    if(this.isModified('password')) {
+        const hashed = Password.toHash(this.get('password'))
+        this.set('password', hashed)
+    }
+    done()
+})
+...
+```
+
+### Handling bad requests
+
+We want to send a bad request when the user tries to create a user that already exists.
+
+Create a new bad-request-error.ts file:
+```
+import { CustomError } from './custom-error'
+
+export class BadRequestError extends CustomError {
+    statusCode = 400
+
+    constructor(public message:string) {
+        super(message)
+        Object.setPrototypeOf(this, BadRequestError.prototype)
+    }
+
+    public serializeErrors() {
+        return [{ message: this.message }]
+    }
+}
+```
+
+Use it in the signup.ts file:
+```
+...
+import { BadRequestError } from '../errors/bad-request-error'
+...
+    const { email, password} = req.body
+    // Test if user already exists
+    const existingUser = await User.findOne({ email })
+    if(existingUser) {
+        throw new BadRequestError('User ' + email + ' already exists')
+    }
+...
+```
+
+### Log the user after creation with JWT
+
+JSON Web Tokens are a classic way to handle authentification on web application. It sends a token that is usually stored in the session of the web browser and identify him/her to other services, by being sent with each request. It has a short lifespan (15 minutes). A video about JWT: https://www.youtube.com/watch?v=7Q17ubqLfaM
+
+In our application, each service will check the token is valid. But what if we want to ban a user? The user may have a still valid token for 15 minutes. We will send a UserBanned event to unvalidate this user's tokens. Each service will store in cache a list of banned users for 15 minutes (maximum live of a token) to forbid this user may he or she comes.
+
+Note that with microservices, there is no perfect auth solution. We'll use one that will work in our context.
