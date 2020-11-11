@@ -1242,5 +1242,70 @@ router.get('/api/users/currentuser', currentUser, requireAuth, (req, res) => {
     ...
 ```
 
-# The server-side rendered react application (WIP)
+# A refactor for tests
 
+We'll add tests later, but we will prepare them. Create a app.ts file in src and copy what is above the start function (except moogoose import).
+
+app.ts
+```
+import express from 'express'
+import 'express-async-errors'
+import { json } from 'body-parser'
+import cookieSession from 'cookie-session'
+
+import { currentUserRouter } from './routes/current-user'
+import { signinRouter } from './routes/signin'
+import { signoutRouter } from './routes/signout'
+import { signupRouter } from './routes/signup'
+import { errorHandler } from './middlewares/error-handler'
+import { NotFoundError } from './errors/not-found-error'
+
+const app = express()
+app.set('trust proxy', true) // We need to trust nginx proxy
+app.use(json())
+app.use(cookieSession({ signed: false, secure: true })) // cookie config, jwt already encrypted
+
+app.use(currentUserRouter)
+app.use(signinRouter)
+app.use(signoutRouter)
+app.use(signupRouter)
+
+app.all('*', async (req, res) => {
+    throw new NotFoundError()
+})
+
+app.use(errorHandler)
+
+export { app }
+```
+
+index.ts
+```
+import mongoose from 'mongoose'
+
+import { app } from './app'
+
+const start = async () => {
+    if(!process.env.JWT_KEY) {
+        throw new Error('JWT_KEY must be defined')
+    }
+    try {
+        await mongoose.connect('mongodb://auth-mongo-srv:27017/auth', {
+            useNewUrlParser:true,
+            useUnifiedTopology: true,
+            useCreateIndex: true
+        })
+        console.log('Auth connected to mongodb')
+    } catch(err) {
+        console.log(err)
+    }
+
+    app.listen(3000, () => {
+        console.log('Auth service listening on port 3000')
+    })
+}
+
+start()
+```
+
+Next lecture on the other document!
