@@ -350,24 +350,326 @@ Unfortunatly, you cannot override the certificate error with firefox. You have t
 
 ## Creating routes
 
-In the auth src folder, create a routes folder, and four files:
+Run:
+```
+express-validator
+```
+In the auth src folder, create a routes folder, and four files. Also update the index:
 
 signin.ts
 ```
+import express from 'express'
 
+const router = express.Router()
+
+router.post('/api/users/signin', (req, res) => {
+    res.send('Hello signin')
+})
+
+export { router as signinRouter }
 ```
 
 signout.ts
 ```
+import express from 'express'
 
+const router = express.Router()
+
+router.post('/api/users/signout', (req, res) => {
+    res.send('Hello signout')
+})
+
+export { router as signoutRouter }
 ```
 
 signup.ts
 ```
+import express, { Request, Response } from 'express'
+import { body, validationResult } from 'express-validator'
 
+const router = express.Router()
+
+router.post('/api/users/signup', [
+    body('email').isEmail().withMessage('Email must be valid'),
+    body('password').trim().isLength({ min:4, max: 20}).withMessage('Password must be between 4 and 20 characters')
+], (req: Request, res: Response) => {
+    // Error check
+    const errors = validationResult(req)
+    if(!errors.isEmpty) {
+        // Send error object as a json array
+        return res.status(400).send(errors.array())
+    }
+
+    const { email, password } = req.body
+    console.log('Creating a user with email: ' + email)
+    res.send({})
+
+})
+
+export { router as signupRouter }
 ```
 
 current-user.ts
 ```
+import express from 'express'
 
+const router = express.Router()
+
+router.get('/api/users/currentuser', (req, res) => {
+    res.send('Hi currentuser')
+})
+
+export { router as currentUserRouter }
+```
+
+index.ts
+```
+import express from 'express'
+import { json } from 'body-parser'
+
+import { currentUserRouter } from './routes/current-user'
+import { signinRouter } from './routes/signin'
+import { signoutRouter } from './routes/signout'
+import { signupRouter } from './routes/signup'
+
+const app = express()
+app.use(json())
+app.use(currentUserRouter)
+app.use(signinRouter)
+app.use(signoutRouter)
+app.use(signupRouter)
+
+app.listen(3000, () => {
+    console.log('Auth service listening on port 3000')
+})
+```
+
+## Handling errors
+
+Here we handle a specific signup error. But we will have to handle tons of different errors. We'll create a middleware to handle all errors the same way.
+
+Create a middleware folder in the src folder. Create a error-handler.ts file:
+```
+import { Request, Response, NextFunction } from 'express'
+
+export const errorHandler = (err: Error, req: Request, res: Response, next:NextFunction) => {
+    console.log('Error: ', err)
+    res.status(400).send({
+        message: err.message
+    })
+}
+```
+
+Add `app.use(errorHandler)` in the index.ts file.
+
+Go back to signup and update the error with:
+```
+...
+    if(!errors.isEmpty) {
+        throw new Error('Invalid Email or Password')
+    }
+...
+```
+Now errors will be handled the same way.
+
+## Errors subclasses
+
+We want to go further and have différent types of errors with different fields. We'll use typescript object oriented system.
+
+Create a new `errors` folder in src. Add files inside:
+
+request-validation-error.ts
+```
+import { ValidationError } from 'express-validator'
+
+export class RequestValidationError extends Error {
+    constructor(private errors: ValidationError[]) {
+        super()
+        // Because we extend a built-in class
+        Object.setPrototypeOf(this, RequestValidationError.prototype)
+    }
+}
+```
+
+database-connection-error.ts
+```
+export class DatabaseConnectionError extends Error {
+    reason = 'Error connecting to database'
+    constructor() {
+        super()
+        // Because we extend a built-in class
+        Object.setPrototypeOf(this, DatabaseConnectionError.prototype)
+    }
+}
+```
+
+Update signup.ts:
+```
+...
+import { RequestValidationError } from '../errors/request-validation-error'
+import { DatabaseConnectionError } from '../errors/database-connection-error'
+...
+    // Error check
+    const errors = validationResult(req)
+    if(!errors.isEmpty) {
+        throw new RequestValidationError(errors.array())
+    }
+
+    const { email, password } = req.body
+    console.log('Creating a user with email: ' + email)
+    throw new DatabaseConnectionError()
+...
+```
+
+Update error-handler.ts:
+```
+import { Request, Response, NextFunction } from 'express'
+import { RequestValidationError } from '../errors/request-validation-error'
+import { DatabaseConnectionError } from '../errors/database-connection-error'
+
+export const errorHandler = (err: Error, req: Request, res: Response, next:NextFunction) => {
+    
+    if(err instanceof RequestValidationError) {
+        const formattedErrors = err.errors.map(error => {
+            return { message: error.msg, field: error.param }
+        })
+        return res.status(400).send({ errors: formattedErrors })
+    }
+
+    if(err instanceof DatabaseConnectionError) {
+        return res.status(500).send({ errors: [{ message: err.reason}] })
+    }
+
+    res.status(400).send({ errors: [{ message: 'Unidentified error' }] })
+}
+```
+
+## Serializing errors
+
+If we add a lot of errors, the error handler will become too large and, as a consequence, unmanageable.
+
+We will also use the package to make express handling async errors:
+```
+npm install express-async-errors
+```
+
+Create a new `custom-error.ts` abstract class :
+
+```
+export abstract class CustomError extends Error {
+    abstract statusCode: number     // number member variable
+
+    constructor(message:string) {
+        super(message)
+        Object.setPrototypeOf(this, CustomError.prototype)
+    }
+
+    abstract serializeErrors(): {   // method that returns an array of objects
+        message: string;            // ...composed by a message string
+        field?: string              // ...and an optional string field
+    }[]
+}
+```
+
+request-validation-error.ts:
+```
+import { ValidationError } from 'express-validator'
+import { CustomError } from './custom-error'
+
+export class RequestValidationError extends Error implements CustomError {
+    statusCode = 400
+
+    constructor(public errors: ValidationError[]) {
+        super()
+        // Because we extend a built-in class
+        Object.setPrototypeOf(this, RequestValidationError.prototype)
+    }
+
+    serializeErrors() {
+        return this.errors.map( err => {
+            return { message: err.msg, field: err.param }
+        })
+    }
+}
+```
+
+database-connection-error.ts
+```
+import { CustomError } from './custom-error'
+
+export class DatabaseConnectionError extends CustomError {
+    statusCode = 500
+    reason = 'Error connecting to database'
+
+    constructor() {
+        super('Error connecting to database')
+    }
+
+    serializeErrors() {
+        return [ {message: this.reason} ]
+    }
+}
+```
+
+error-handler.ts
+```
+import { Request, Response, NextFunction } from 'express'
+import { CustomError } from '../errors/custom-error'
+
+export const errorHandler = (err: Error, req: Request, res: Response, next:NextFunction) => {
+    
+    if(err instanceof CustomError) {
+        return res.status(err.statusCode).send({ errors: err.serializeErrors() })
+    }
+
+    res.status(400).send({ errors: [{ message: 'Unidentified error' }] })
+}
+```
+
+You can leverage our code to implement a not found error :
+
+not-found-error.ts:
+```
+import { CustomError } from './custom-error'
+
+export class NotFoundError extends CustomError {
+    statusCode = 404
+
+    constructor() {
+        super('Route not found')
+    }
+
+    serializeErrors() {
+        return [ { message: 'Route not found'} ]
+    }
+}
+```
+
+index.ts
+```
+import express from 'express'
+import 'express-async-errors'
+...
+import { NotFoundError } from './errors/not-found-error'
+
+const app = express()
+app.use(json())
+app.use(currentUserRouter)
+app.use(signinRouter)
+app.use(signoutRouter)
+app.use(signupRouter)
+
+app.all('*', async () => {
+    throw new NotFoundError()
+})
+
+app.use(errorHandler)
+...
+```
+
+## Database for Auth
+
+Install mongoose:
+```
+npm install mongoose
 ```
