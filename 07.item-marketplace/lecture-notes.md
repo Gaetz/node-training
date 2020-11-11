@@ -216,11 +216,14 @@ To access locally your application, modify /etc/hots and add `127.0.0.1  items.d
 
 Previous configuration for local access. Nevertheless, local access can become slow on a laptop computer. We'll leverage google cloud to test our application. We will use google cloud because skaffold was developped by google, so that it is very easy to use with google cloud.
 
-Note that we'll have to use our credit card for this demo. Google cloud offer 300$ so we should stay in the free tier, so you won't pay anything. Google cloud need a manual udate to start taking you money, so you don't have to worry.
+Note that we'll have to use our free credit for this demo. Google cloud offer 300$ so we should stay in the free tier, so you won't pay anything. Google cloud need a manual update to start taking you money, so you don't have to worry.
+
+To suspend or stop your VM, you can go on this page :
+https://console.cloud.google.com/compute/instances
 
 Do not forget, at the end of this course, to delete the cluster.
 
-If you don't want to take this risk, keep working with the local redirection.
+If you don't want to use your free credit, keep working with the local redirection.
 
 ## Google cloud project
 
@@ -234,14 +237,16 @@ Change to your new project
 
 Go to Kubernetes engine on the menu
 Wait for the kubernetes API to start
-Create a cluster
+Create a cluster, name it items-dev-cluster
 Change the name of the cluster to items-dev
 Select a zone near you
 Select a 1.15+ version (e.g. latest)
+Don't click Create.
 
-Then go to default-pool. You should see your config. Go to Nodes.
+Then go to default-pool. Use only 3 nodes. You should see your config. 
+Go to Nodes.
 Select Serie N1 and Type g1-small to get a small machine.
-Click create. It will take some time.
+Nom click create. It will take some time.
 
 We'll use the google cloud sdk to automatically manage kubernetes contexts for us.
 Go to https://cloud.google.com/sdk/docs/quickstarts 
@@ -261,13 +266,13 @@ Select the region you have chosen before.
 
 If you run docker desktop, run:
 ```
-gcloud container clusters get-credentials items-dev
+gcloud container clusters get-credentials items-dev-cluster
 ```
 
 If not:
 ```
-gcloud components install cubectl
-gcloud container clusters get-credentials items-dev
+gcloud components install kubectl
+gcloud container clusters get-credentials items-dev-cluster
 ```
 
 When you right click the Docker desktop daemon, under Kubernetes, you know see your google cloud cluster. Select it.
@@ -288,9 +293,9 @@ build:
   # local:
   #   push: false
   googleCloudBuild:
-    projectId: items-dev-295212               # Real ID of the project
+    projectId: items-dev-295308               # Real ID of the project
   artifacts:
-    - image: us.gcr.io/items-dev-295212/auth  # us.gcr.io/project/folder-name
+    - image: us.gcr.io/items-dev-295308/auth  # us.gcr.io/project/folder-name
       context: auth
       docker:
         dockerfile: Dockerfile
@@ -306,7 +311,7 @@ Update the auth-depl.yaml deployment file with the new image name:
     spec:
       containers:
         - name: auth
-          image: us.gcr.io/items-dev-295212/auth
+          image: us.gcr.io/items-dev-295308/auth
 ---
 ...
 ```
@@ -330,7 +335,7 @@ Then Rerun skaffold:
 skaffold dev
 ```
 
-You may have to log in again:
+If you have a credential error, you may have to log in again:
 ```
 gcloud auth application-default login
 ```
@@ -340,3 +345,29 @@ You will see google cloud build online. You can go Cloud Build history on the go
 Connect to items.dev/api/users/currentuser
 
 Unfortunatly, you cannot override the certificate error with firefox. You have to use chromium/edge/chrome and type "thisisunsafe" on the error page. And you finally land on your cloud hosts application!
+
+# Auth implementation
+
+## Creating routes
+
+In the auth src folder, create a routes folder, and four files:
+
+signin.ts
+```
+
+```
+
+signout.ts
+```
+
+```
+
+signup.ts
+```
+
+```
+
+current-user.ts
+```
+
+```

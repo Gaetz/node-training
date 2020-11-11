@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: auth
-          image: us.gcr.io/items-dev-295212/auth
+          image: us.gcr.io/items-dev-295308/auth
 ---
 # Default service type: clusterip service
 apiVersion: v1

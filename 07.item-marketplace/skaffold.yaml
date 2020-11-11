@@ -1,3 +1,4 @@
+# ID projet: items-dev-295308
 apiVersion: skaffold/v2alpha3
 kind: Config
 deploy:
@@ -8,9 +9,9 @@ build:
   # local:
   #   push: false
   googleCloudBuild:
-    projectId: items-dev-295212               # Real ID of the project
+    projectId: items-dev-295308               # Real ID of the project
   artifacts:
-    - image: us.gcr.io/items-dev-295212/auth  # us.gcr.io/project/folder-name
+    - image: us.gcr.io/items-dev-295308/auth  # us.gcr.io/project/folder-name
       context: auth
       docker:
         dockerfile: Dockerfile
