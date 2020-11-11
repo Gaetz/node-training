@@ -15,6 +15,12 @@ spec:
       containers:
         - name: auth
           image: us.gcr.io/items-dev-295308/auth
+          env:
+            - name: JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: JWT_KEY
 ---
 # Default service type: clusterip service
 apiVersion: v1

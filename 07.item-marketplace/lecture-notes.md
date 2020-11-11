@@ -852,7 +852,7 @@ export class BadRequestError extends CustomError {
 }
 ```
 
-Use it in the signup.ts file:
+Use it in the signup.ts file. We also add the user creation logic:
 ```
 ...
 import { BadRequestError } from '../errors/bad-request-error'
@@ -863,13 +863,229 @@ import { BadRequestError } from '../errors/bad-request-error'
     if(existingUser) {
         throw new BadRequestError('User ' + email + ' already exists')
     }
+
+    // If not create a user
+    const user = User.build({ email, password })
+    await user.save()
+    console.log('Creating user: ' + email)
+
+    res.status(201).send(user)
 ...
 ```
 
 ### Log the user after creation with JWT
 
-JSON Web Tokens are a classic way to handle authentification on web application. It sends a token that is usually stored in the session of the web browser and identify him/her to other services, by being sent with each request. It has a short lifespan (15 minutes). A video about JWT: https://www.youtube.com/watch?v=7Q17ubqLfaM
+JSON Web Tokens are a classic way to handle authentification on web application. It sends a token that is usually stored in the session of the web browser or in a cookie and identify him/her to other services, by being sent with each request's header. It has a short lifespan (15 minutes). A video about JWT: https://www.youtube.com/watch?v=7Q17ubqLfaM
 
-In our application, each service will check the token is valid. But what if we want to ban a user? The user may have a still valid token for 15 minutes. We will send a UserBanned event to unvalidate this user's tokens. Each service will store in cache a list of banned users for 15 minutes (maximum live of a token) to forbid this user may he or she comes.
+In our application, each service will check the token is valid. But what if we want to ban a user? The user may have a still valid token for 15 minutes. To solve this, we will send a UserBanned event to all services. Each service will store in cache a list of banned users for 15 minutes (maximum live of a token) to forbid this user may he or she comes.
+
+In a normal web client, we can execute javascript in the client application to check the JWT and send the correct html page. We will have a first request to get the page, then a second request to execute some javascript in your browser and check auth etc. But in this application, we will use NextJS, a server-side rendering framework. Because the first page we reach by a GET request is pre-rendered, we cannot have a second request to check auth. We need a cookie to store the JWT on the first page load.
 
 Note that with microservices, there is no perfect auth solution. We'll use one that will work in our context.
+
+Let's start by install cookie-session, a tool to handle cookies in sessions:
+```
+npm install cookie-session @types/cookie-session
+```
+
+We need to update index.js:
+```
+...
+import cookieSession from 'cookie-session'
+...
+const app = express()
+app.set('trust proxy', true)                            // We need to trust nginx proxy
+app.use(json())
+app.use(cookieSession({ signed: false, secure: true })) // cookie config, jwt already encrypted
+...
+```
+
+Now let's create the JWT:
+```
+npm install jsonwebtoken @types/jsonwebtoken
+```
+
+signup.js
+```
+...
+import jwt from 'jsonwebtoken'
+...
+    // If not create a user
+    const user = User.build({ email, password })
+    await user.save()
+    console.log('Creating user: ' + email)
+
+    // Generate JWT and store it in a session cookie   
+    const userJwt = jwt.sign({ id: user.id, email: user.email }, 'artfxsecretkey')
+    req.session = { jwt: userJwt }
+
+    res.status(201).send(user)
+...
+```
+We'll update the secret key later.
+
+If you send an https request with postman to signup, you will see a cookie in the result request. The session code you receive is base64 encoded. If you want to see your JWT, you can go to : https://www.base64decode.org/ to decode it. If you want to see its content : https://jwt.io/
+
+The secret key will need to be known by all pods. It will actually be included in each container environment variables. This is why we will use kubernetes to set it.
+```
+kubectl create secret generic jwt-secret --from-literal=JWT_KEY=artfxsecretkey
+```
+
+Let's update the only pod we have for now.
+
+auth-depl.yaml
+```
+...
+      containers:
+        - name: auth
+          image: us.gcr.io/items-dev-295308/auth
+          env:
+            - name: JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: JWT_KEY
+---
+...
+```
+
+We can now update the hard coded secret key in signup.ts
+```
+...
+    const userJwt = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_KEY!)
+...
+```
+The exclamation point means we are sure `process.env.JWT_KEY` is defined. To ensure that, we need to check the environment variable JWT_KEY exists when the app starts, that is in index.ts:
+```
+...
+const start = async () => {
+    if(!process.env.JWT_KEY) {
+        throw new Error('JWT_KEY must be defined')
+    }
+...
+```
+
+We now have to remove password and __v from the user returned after signup, and also change the monge's "_id" field to a more common "id" field.We can do this in the user schema, that allow un to change the return type. We need to add a second argument.
+
+auth/models/user.ts
+```
+const userSchema = new mongoose.Schema({
+    ...
+}, {
+    toJSON: {
+        transform(doc, ret) {
+            ret.id = ret._id
+            delete ret._id
+            delete ret.password
+            delete ret.__v
+        }
+    }
+})
+```
+
+The signup process is finally finished!
+
+
+## Signin in a user
+
+When signing in a user, we will need to do the same email and password check we did for signup. Let's factorize it. Create a auth/middlewares/validate-request.ts file:
+```
+import { Request, Response, NextFunction } from 'express'
+import { validationResult } from 'express-validator'
+
+import { RequestValidationError } from '../errors/request-validation-error'
+
+export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
+    const errors = validationResult(req)
+    if(!errors.isEmpty()) {
+        throw new RequestValidationError(errors.array())
+    }
+    next()  // Next middleware or final route handler
+}
+```
+
+routes/signin.ts
+```
+import express, { Request, Response } from 'express'
+import { body } from 'express-validator'
+import jwt from 'jsonwebtoken'
+
+import { validateRequest } from '../middlewares/validate-request'
+import { User } from '../models/user'
+import { BadRequestError} from '../errors/bad-request-error'
+import { Password } from '../services/password'
+
+const router = express.Router()
+
+router.post('/api/users/signin', [
+        body('email').isEmail().withMessage('Email must be valid'),
+        body('password').trim().notEmpty().withMessage('You must supply a password')
+    ], 
+    validateRequest,                            // an other argument before the function
+    async (req: Request, res: Response) => {
+        const { email, password } = req.body
+
+        const existingUser = await User.findOne({ email })
+        if (!existingUser) {
+            throw new BadRequestError('Invalid credentials')
+        }
+
+        const passwordMatch = await Password.compare(existingUser.password, password)
+        if(!passwordMatch) {
+            throw new BadRequestError('Invalid credentials')
+        }
+
+        const userJwt = jwt.sign({ id: existingUser.id, email: existingUser.email }, process.env.JWT_KEY!)
+        req.session = { jwt: userJwt }
+
+        res.status(200).send(existingUser)
+})
+
+export { router as signinRouter }
+```
+
+We can also update the signup process to use validateRequest.
+
+routes/signup.ts
+```
+import express, { Request, Response } from 'express'
+import { body } from 'express-validator'
+import jwt from 'jsonwebtoken'
+
+import { BadRequestError } from '../errors/bad-request-error'
+import { User } from '../models/user'
+import { validateRequest } from '../middlewares/validate-request'
+
+const router = express.Router()
+
+router.post('/api/users/signup', [
+        body('email').isEmail().withMessage('Email must be valid'),
+        body('password').trim().isLength({ min:4, max: 20}).withMessage('Password must be between 4 and 20 characters')
+    ], 
+    validateRequest,
+    async (req: Request, res: Response) => {
+        const { email, password} = req.body
+        // Test if user already exists
+        const existingUser = await User.findOne({ email })
+        if(existingUser) {
+            throw new BadRequestError('User ' + email + ' already exists')
+        }
+
+        // If not create a user
+        const user = User.build({ email, password })
+        await user.save()
+        console.log('Creating user: ' + email)
+
+        // Generate JWT and store it in a session cookie   
+        const userJwt = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_KEY!)
+        req.session = { jwt: userJwt }
+
+        res.status(201).send(user)
+    })
+
+export { router as signupRouter }
+```
+
+## Current user
+
+
